@@ -1,0 +1,33 @@
+{
+    "env_name": "highway-v0",
+    "num_episodes": 150,
+    "device": "cuda",
+    "state_type": "OccupancyGrid",
+    "controlled": false,
+    "num_iterations": 10,
+    "paths": {
+        "model_dir": "./models/",
+        "checkpoint_dir": "./checkpoints/",
+        "checkpoint_file": "dynamics.pt",
+        "dynamics_file": "dynamics.pt",
+        "reward_file": "reward.pt",
+        "data_dir": "./data/",
+        "base_data_file": "random_data.pickle",
+        "controlled_data_file": "retrain_data.pickle",
+        "logger_dir": "./logger/"
+    },
+    "model_config": {
+        "model_type": "reward",
+        "dynamics_hidden_size": 256,
+        "reward_hidden_size": 256,
+        "optimizer": "adam",
+        "loss_type": "mse",
+        "learning_rate": 0.001,
+        "weight_decay": 1e-3,
+        "num_epochs": 60,
+        "scheduler_gamma": 1.0,
+        "train_split_ratio": 0.8,
+        "batch_size": 128,
+        "shuffle": true
+    }
+}
