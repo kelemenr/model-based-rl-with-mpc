@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch import nn
 from torch.functional import F
 
@@ -51,6 +52,42 @@ class DynamicsModel(nn.Module):
         return loss_function(predictions, next_states)
 
 
+class DynamicsModelLSTM(nn.Module):
+    def __init__(self, state_size, action_size, hidden_size, dt, num_layers=2):
+        super().__init__()
+        self.state_size = state_size
+        self.action_size = action_size
+        self.hidden_size = hidden_size
+        self.dt = dt
+        self.num_layers = num_layers
+
+        self.lstm = nn.LSTM(input_size=state_size + action_size,
+                            hidden_size=hidden_size,
+                            num_layers=num_layers,
+                            batch_first=True)
+
+        self.fc_A = nn.Linear(hidden_size, state_size * state_size)
+        self.fc_B = nn.Linear(hidden_size, state_size * action_size)
+
+    def forward(self, state_sequence, action_sequence):
+        state_action_sequence = torch.cat(
+            (state_sequence, action_sequence), -1)
+        lstm_out, _ = self.lstm(state_action_sequence)
+        A = torch.reshape(self.fc_A(lstm_out),
+                          (-1, self.state_size, self.state_size))
+        B = torch.reshape(self.fc_B(lstm_out),
+                          (-1, self.state_size, self.action_size))
+        ds = A @ state_sequence.unsqueeze(-1).float() + \
+            B @ action_sequence.unsqueeze(-1).float()
+        return state_sequence + ds.squeeze() * self.dt
+
+    @staticmethod
+    def get_loss(model, transition_data, loss_function, device):
+        states, actions, next_states, rewards = transition_data
+        predictions = model(states, actions)
+        return loss_function(predictions, next_states)
+
+
 class RewardModel(nn.Module):
     def __init__(self, state_size, action_size, hidden_size):
         super(RewardModel, self).__init__()
@@ -92,3 +129,35 @@ class RewardModel(nn.Module):
             1, actions.type(torch.int64))
         return loss_function(predictions,
                              rewards.reshape(rewards.shape[0], 1))
+
+
+class RewardModelLSTM(nn.Module):
+    def __init__(self, state_size, action_size, hidden_size):
+        super(RewardModelLSTM, self).__init__()
+        self.state_size = state_size
+
+        self.lstm = nn.LSTM(input_size=state_size + 1,
+                            hidden_size=hidden_size, num_layers=1, batch_first=True)
+        self.lin = nn.Linear(hidden_size, 5)
+        self.relu = nn.ReLU()
+
+    def resize_input(self, state_batch, action_batch):
+        if state_batch.shape[0] == self.state_size or state_batch.shape[0] == 1:
+            state_batch = state_batch.reshape(1, self.state_size)
+            action_batch = action_batch.reshape(1, 1)
+            return torch.cat((state_batch, action_batch), -1)
+        else:
+            return torch.cat((state_batch, action_batch), -1)
+
+    def forward(self, state_batch, action_batch):
+        x = self.resize_input(state_batch, action_batch)
+        lstm_out, _ = self.lstm(x)
+        x = self.relu(lstm_out)
+        return self.lin(x)
+
+    @staticmethod
+    def get_loss(model, transition_data, loss_function, device):
+        states, actions, next_states, rewards = transition_data
+        predictions = model(states, actions).gather(
+            1, actions.type(torch.int64))
+        return loss_function(predictions, rewards.reshape(rewards.shape[0], 1))

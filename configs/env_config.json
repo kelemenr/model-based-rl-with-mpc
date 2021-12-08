@@ -1,0 +1,12 @@
+{
+    "observation": {
+        "type": "OccupancyGrid",
+        "vehicles_count": 15
+    },
+    "vehicles_density": 1.2,
+    "reward_speed_range": [
+        25,
+        30
+    ],
+    "collision_reward": -2
+}

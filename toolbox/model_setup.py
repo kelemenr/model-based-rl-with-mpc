@@ -1,5 +1,7 @@
-from models import DynamicsModel, RewardModel
-from toolbox.factory import loss_function_factory, optimizer_factory
+from models import (DynamicsModel, DynamicsModelLSTM, RewardModel,
+                    RewardModelLSTM)
+from toolbox.factory import (loss_function_factory, model_factory,
+                             optimizer_factory)
 
 
 def calculate_state_size(state_shape, state_type):
@@ -13,9 +15,10 @@ def create_dynamics_model(env, config):
     state_shape = env.observation_space.shape
     state_size = calculate_state_size(state_shape, config.state_type)
 
-    model = DynamicsModel(state_size=state_size, action_size=1,
-                          hidden_size=config.model.dynamics_hidden_size,
-                          dt=1 / env.unwrapped.config["policy_frequency"])
+    dynamics_model = model_factory(config.model.dynamics_model)
+    model = dynamics_model(state_size=state_size, action_size=1,
+                           hidden_size=config.model.dynamics_hidden_size,
+                           dt=1 / env.unwrapped.config["policy_frequency"])
 
     optimizer_function = optimizer_factory(config.model.optimizer)
     optimizer = optimizer_function(model.parameters(
@@ -29,8 +32,9 @@ def create_reward_model(env, config):
     state_shape = env.observation_space.shape
     state_size = calculate_state_size(state_shape, config.state_type)
 
-    model = RewardModel(state_size=state_size, action_size=5,
-                        hidden_size=config.model.reward_hidden_size)
+    reward_model = model_factory(config.model.reward_model)
+    model = reward_model(state_size=state_size, action_size=5,
+                         hidden_size=config.model.reward_hidden_size)
 
     optimizer_function = optimizer_factory(config.model.optimizer)
     optimizer = optimizer_function(model.parameters(
@@ -41,9 +45,9 @@ def create_reward_model(env, config):
 
 
 def setup_model(model_type):
-    if model_type == "dynamics":
+    if model_type in ["dynamics", "dynamics-lstm"]:
         return create_dynamics_model
-    elif model_type == "reward":
+    elif model_type in ["reward", "reward-lstm"]:
         return create_reward_model
     else:
         raise ValueError("Unknown model type: {}".format(model_type))

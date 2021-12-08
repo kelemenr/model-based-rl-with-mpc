@@ -3,7 +3,6 @@ import os
 
 import highway_env
 
-from configs.env_configs import speed_range_env_config
 from controllers import MPCController, RandomController
 from sampler import ControlledSampler
 from toolbox.config import Config
@@ -11,14 +10,14 @@ from toolbox.model_setup import create_dynamics_model, create_reward_model
 from toolbox.utils import (append_pickle, load_checkpoint, load_config,
                            pickle_data, setup_env_with_config)
 
-SEED = 42
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Collect MPC Controlled data.")
     parser.add_argument("-config_path", default="configs/config.json",
                         type=str, help="Path to the configuration file.")
+    parser.add_argument("-env_config_path", default="configs/env_config.json",
+                        type=str, help="Path to the environment configuration file.")
     parser.add_argument("-append", default=False,
                         type=str, help="Whether to append an existing data file.")
     return parser.parse_args()
@@ -29,13 +28,14 @@ def main():
 
     try:
         config_data = load_config(args.config_path)
+        env_config_data = load_config(args.env_config_path)
     except IOError as e:
         print(f"Error reading config file: {e}")
         return
 
     config = Config(**config_data)
     env = setup_env_with_config(
-        config.env_name, speed_range_env_config, seed=SEED)
+        config.env_name, env_config_data, seed=config.seed)
 
     if config.controlled:
         model, optimizer, loss = create_dynamics_model(env, config)
